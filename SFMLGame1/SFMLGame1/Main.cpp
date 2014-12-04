@@ -11,6 +11,7 @@
 #include <windef.h>
 #include <SFML/Graphics.hpp>
 #include <SFML\System.hpp>
+#include <SFML\Audio.hpp>
 #include <stdio.h>
 #include <Box2D\Box2D.h>
 #include <sfeMovie\Movie.hpp>
@@ -20,34 +21,103 @@
 #include <stdlib.h>
 #include <boost\archive\binary_iarchive.hpp>
 #include <boost\archive\binary_oarchive.hpp>
+#include <boost\serialization\list.hpp>
+#include <boost\serialization\base_object.hpp>
+#include <boost\serialization\utility.hpp>
+#include <boost\serialization\assume_abstract.hpp>
 #include <fstream>
 #include <WinBase.h>
 #include <list>
+#include <thread>
+#include <string>
+//#include <Headers.h>
 //#include <algorithm>
 //#include <math.h>
+//music, convex shapes, serialize, blend in level, colorballs, teleport, create passages,moving plattforms,red dangerzones
 
 float easing(float t,float b, float c, float d){
 	t = t / d;
 	float ts= (t)*t;
 	float tc = ts*t;
 	return b + c*(-2 * tc + 3 * ts);
-}
+};
+
+class verts {
+public:float posx, posy;
+private:
+	friend class boost::serialization::access;
+	template<class Archive>
+	void serialize(Archive & ar, const unsigned int version){
+		ar & posx; ar & posy; printf("and pos");
+	}
+};
+
+class polys {
+public: std::list<verts> poses;
+private:
+	friend class boost::serialization::access;
+	template<class Archive>
+	void serialize(Archive & ar, const unsigned int version){
+		ar & poses; printf("and pos");
+	}
+};
+
+class rects {
+public: float startx, starty, endx, endy, posx, posy;
+private:
+	friend class boost::serialization::access;
+	template<class Archive>
+	void serialize(Archive & ar, const unsigned int version){
+		ar & startx; ar & starty; ar & posx; ar & posy; printf("and pos");
+	
+	}
+
+};
 class testlev{
 private:
 	friend class boost::serialization::access;
 	template<class Archive>
 	void serialize(Archive & ar, const unsigned int version){
-		ar & yeah; ar & blah;
+		printf("serializing prims");
+		ar & yeah; ar & blah; ar & justtest; ar & polylist; printf("and complist");
+		ar & ints; printf("and list");
 	}
 public:	
 	int yeah;
 	float blah;
+	std::list<rects> justtest;
+	std::list<polys> polylist;
+	std::list<int> ints;
+	b2World* world;
+	float32 tstep;
+	int32 vIt;
+	int32 pIt;
+	sf::RenderWindow* win;
+	sf::RectangleShape* sth;
+	void bla(){ /*printf("shit"); std::cout << "shit";*/ win->draw(*sth); sf::Context blp; blp.setActive(true); };
+	void run(){
+		while (true){
+			//Sleep(1);
+			world->Step(tstep, vIt, pIt); printf("simulating");
+			
+		}
+	};
+
 };
 
-int main()
+void forthread(testlev* test){
+	printf("Thread");
+	//sf::Context con; con.setActive(true);
+	/*sf::Music musi;
+	musi.openFromFile("./Music/battle5.ogg");
+	musi.play();*/
+	test->run();
+};
+
+int bla()
 {
 	sf::ContextSettings sets; sets.antialiasingLevel = 2;
-	sf::RenderWindow window(sf::VideoMode(600, 400), "SFML works!",sf::Style::Default,sets);
+	sf::RenderWindow window(sf::VideoMode(600, 400), "SFML works!", sf::Style::Default, sets);
 #if 0
 	float t = 0;
 	float b = 5;
@@ -69,26 +139,40 @@ int main()
 #endif
 #if 0
 	sfe::Movie movie;
-	movie.openFromFile("Wildlife.wmv");
+	movie.openFromFile("Seq01.mp4");
 	movie.fit(0,0,600,400);
 	movie.play();
+	sf::Music musi;
+	musi.openFromFile("./Music/M27.ogg");
+	musi.play();
 	while(true){
 		movie.update();
 		window.clear();
 		window.draw(movie);
 		window.display();
-		if (movie.getStatus() != sfe::Status::Playing){ printf("Movieend."); movie.~Movie(); break; }
+		if (movie.getStatus() != sfe::Status::Playing){ printf("Movieend."); /*delete &movie;*/ break; }
 	}
 #endif
 #if 1	
 	sf::CircleShape shape(10.f);
 	shape.setFillColor(sf::Color::Green); shape.setOrigin(10.f, 10.f);
-	std::ofstream ofs("sertest.dat",std::ios::binary);
-	boost::archive::binary_oarchive oa(ofs);
+	//std::ofstream ofs("sertest.dat",std::ios::binary);
+	//boost::archive::binary_oarchive oa(ofs);
 	testlev tes;
-	tes.blah = 0.1f; tes.yeah = 1;
-	oa << tes;
-	ofs.close();
+	std::map<int, std::string> fortests;
+	fortests.insert(std::pair<int,std::string>(1,"whatever"));
+	std::cout << fortests[1];
+	fortests.insert(std::pair<int, std::string>(1, "blabla")).first->second = "blabla"; fortests.find(1)->second = "fuckit";
+	std::cout << fortests[1];
+
+	std::map<std::string, bool> keytests;
+	keytests.insert(std::pair<std::string, bool>("test", true)).first->second = false;
+	if (!keytests["test"])
+	std::cout << "works";
+	//rects testi; testi.posx = 1;
+	//tes.blah = 0.1f; tes.yeah = 1; tes.ints.push_back(1); tes.justtest.push_back(testi);
+	//oa << tes;
+	//ofs.close();
 	b2Vec2 gravity(0.0f, 1.0f);
 	b2World world(gravity);
 	b2BodyDef gbd;
@@ -127,7 +211,7 @@ int main()
 	blockfix.restitution = 0.01f;
 	block->CreateFixture(&blockfix);
 	block->ResetMassData();
-	float32 tstep = 1.0f / 60.0f;
+	float32 tstep = 1.0f / 360.0f;
 	int32 vIt = 6;
 	int32 pIt = 2;
 	b2Vec2* bla = new b2Vec2(100.0f, -500.0f);
@@ -142,9 +226,20 @@ int main()
 	sf::RectangleShape newblock;
 	std::list<sf::RectangleShape> reclist;
 	std::list<b2Body*> bolist;
+	std::list<sf::Vector2f>* convlist=new std::list<sf::Vector2f>();
+	std::list<sf::ConvexShape> convshlist;
+
+	/*sfe::Movie movie;
+	movie.openFromFile("Wildlife.wmv");
+	movie.fit(0, 0, 600, 400);
+	movie.play();
+	sf::RenderTexture rendtex;
+	rendtex.create(600, 400);
+	movie.update();
+	rendtex.draw(movie);*/
 
 	sf::Texture backtex;
-	backtex.loadFromFile("vs14.jpg");
+	backtex.loadFromFile("vs14.jpg"); backtex.setSmooth(true);
 	sf::Sprite backg;
 	backg.setTexture(backtex);
 	backg.setPosition(0.0f, 0.0f);
@@ -160,9 +255,23 @@ int main()
 	clock2.setRadius(50); clock2.setOrigin(sf::Vector2f(50, 50));
 	//clock2.setOrigin(sf::Vector2f((float)clock2tex.getSize().x/2u,(float)clock2tex.getSize().y/2u));
 	
-
+	/*sf::Music musi;
+	musi.openFromFile("./Music/battle5.ogg");
+	musi.play();*/
+	testlev* test=new testlev();
+	test->world = &world;
+	test->tstep = tstep;
+	test->vIt = vIt;
+	test->pIt = pIt;
+	test->win = &window;
+	test->sth = &sth;
+	sf::Thread* t2=new sf::Thread(&forthread, test);
+	t2->launch();
+	//std::thread* t1 = new std::thread(&forthread,test);
+	
 	b2Body* sens=NULL;
 	b2Body* bobo=NULL;
+	testlev tas;
 	while (window.isOpen())
 	{
 		blu->x = shape.getPosition().x;
@@ -216,6 +325,9 @@ int main()
 					block->SetAngularVelocity(1); /*block->ApplyForceToCenter(b2Vec2(20, 0),true);*/block->SetLinearVelocity(b2Vec2(4, 0));
 					//block->ApplyForce(b2Vec2(30000, 0), b2Vec2(block->GetPosition().x, block->GetPosition().y), true);
 				}
+				//if (sf::Keyboard::isKeyPressed(sf::Keyboard::L)){
+				//	block->SetLinearVelocity(b2Vec2(4, 0)); block->SetAngularVelocity(1);
+				//}
 
 				if (sf::Keyboard::I == event.key.code){
 					if (block->GetLinearVelocity().y <= 5 && block->GetLinearVelocity().y >= -5){
@@ -247,6 +359,13 @@ int main()
 					newblock.setPosition(start);
 					//newblock.setOrigin((end-start)/2.f);
 					reclist.push_back(newblock);
+					rects* bltest=new rects();
+					bltest->posx = newblock.getPosition().x;
+					bltest->posy = newblock.getPosition().y;
+					bltest->startx = newblock.getSize().x;
+					bltest->starty = newblock.getSize().y;
+					tes.justtest.push_back(*bltest);
+					printf("%d", tes.justtest.size());
 					}
 				if (sf::Keyboard::Return == event.key.code){
 					for each(sf::RectangleShape var in reclist){
@@ -269,9 +388,87 @@ int main()
 				if (sf::Keyboard::Z == event.key.code){
 					bobo->GetFixtureList()->SetSensor(true);
 					sens = bobo;
-				}
+					}
+				if (sf::Keyboard::C == event.key.code){
+					convlist->push_back(window.mapPixelToCoords(sf::Mouse::getPosition(window)));
+					}
+				if (sf::Keyboard::V == event.key.code){
+					sf::ConvexShape conshape;
+					conshape.setPointCount(convlist->size());
+					b2Vec2* vertx = new b2Vec2[convlist->size()];
+					int i = 0;
+					polys* newpoly = new polys();
+					for each(sf::Vector2f var in *convlist){
+						conshape.setPoint(i, var);
+						vertx[i].Set(var.x, var.y);
+						verts* newvert = new verts();
+						newvert->posx = var.x;
+						newvert->posy = var.y;
+						newpoly->poses.push_back(*newvert);
+						i++;
+					}
+					tes.polylist.push_back(*newpoly);
+					b2BodyDef* podef = new b2BodyDef; podef->type = b2_staticBody;
+					b2Body* pobo = world.CreateBody(podef);
+					b2PolygonShape poly;
+					poly.Set(vertx, convlist->size());
+					pobo->CreateFixture(&poly, 0.0f);
+					delete[] vertx;
+					convshlist.push_back(conshape);
+					convlist->clear();
+					
+					
+					}
+
+				if (sf::Keyboard::Y == event.key.code){
+					backg.scale(0.9f, 0.9f);
+					}
+
+				if (sf::Keyboard::X == event.key.code){
+					backg.scale(1.1f, 1.1f);
+					}
+
+				if (sf::Keyboard::Q == event.key.code){
+					std::ofstream ofs("sertest.dat", std::ios::binary);
+					boost::archive::binary_oarchive oa(ofs);
+					oa << tes;
+					ofs.close();
 				}
 
+				if (sf::Keyboard::O == event.key.code){
+					std::ifstream ifs("sertest.dat", std::ios::binary);
+					boost::archive::binary_iarchive ia(ifs);
+					ia >> tas;
+					ifs.close();
+					for each(rects var in tas.justtest){
+						newblock.setSize(sf::Vector2f(var.startx,var.starty));
+						newblock.setPosition(var.posx,var.posy);
+						printf("newbox:%f %f", newblock.getSize().x, newblock.getPosition().x);
+						reclist.push_back(newblock);
+					}
+					for each(polys var in tas.polylist){
+						sf::ConvexShape newcon;
+						newcon.setPointCount(var.poses.size());
+						b2Vec2* vertx = new b2Vec2[var.poses.size()];
+						int i = 0;
+						for each(verts vvar in var.poses){
+							newcon.setPoint(i, sf::Vector2f(vvar.posx,vvar.posy));
+							vertx[i].Set(vvar.posx, vvar.posy);
+							i++;
+						}
+						b2BodyDef* podef = new b2BodyDef; podef->type = b2_staticBody;
+						b2Body* pobo = world.CreateBody(podef);
+						b2PolygonShape poly;
+						poly.Set(vertx, var.poses.size());
+						pobo->CreateFixture(&poly, 0.0f);
+						delete[] vertx;
+						convshlist.push_back(newcon);
+					}
+				}
+
+
+				}
+				
 				
 			
 			if (event.type == sf::Event::MouseWheelMoved){
@@ -302,22 +499,23 @@ int main()
 
 		}
 		
-		world.Step(tstep, vIt, pIt);
+		//world.Step(tstep, vIt, pIt);
 		shape.setPosition(mbody->GetPosition().x,mbody->GetPosition().y);
 		sth.setPosition(block->GetPosition().x, block->GetPosition().y);
 		sth.setRotation(block->GetTransform().q.GetAngle()*180.f/3.14156f);
 		view.setCenter(sth.getPosition());
 		clock1.setPosition(window.mapPixelToCoords(sf::Vector2i(0,0)));
 		clock2.setPosition(clock1.getPosition() + clock2.getOrigin());
-		clock2.rotate(0.01f);
+		clock2.rotate(0.005f);
 		if (clock2.getRotation() >= 358.f)window.close();
 		window.clear();
 		window.setView(view);
+		
 		window.draw(backg);
 		window.draw(shape);
 		window.draw(sth);
-		window.draw(clock1);
-		window.draw(clock2);
+		//test->bla();
+		
 		bolist.begin();
 		/*for each (b2Body* var in bolist)
 		{
@@ -330,9 +528,14 @@ int main()
 		for each(sf::RectangleShape var in reclist){
 			window.draw(var);
 		}
+		for each(sf::ConvexShape var in convshlist){
+			window.draw(var);
+		}
 		window.draw(newblock);
+		window.draw(clock1);
+		window.draw(clock2);
 		window.display();
-	}
+	}t2->terminate();
 #endif
 	return 0;
 };
