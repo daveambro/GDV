@@ -104,6 +104,8 @@ public:
 	  virtual void draw(){
 		  // player->draw();
 	   }
+
+	  virtual ~Masterplayer(){}
 };
 
 
@@ -167,7 +169,7 @@ public:
 		//ia >> lvl; printf("madeit");
 		//ifs.close();
 		std::string line;
-		std::ifstream tfs("textfile.txt");
+		std::ifstream tfs(levelfile);
 		while (std::getline(tfs, line)){
 			if (line == "playerpos"){
 				getline(tfs, line);
@@ -496,6 +498,7 @@ public:
 			
 			printf("Shit happens");
 			t1->terminate();
+			delete world;
 			nextplayer = 1;
 			master->music.stop();
 			change();
@@ -532,7 +535,7 @@ public:
 		clock1->setPosition(win->mapPixelToCoords(sf::Vector2i(0, 0)));
 		clock2->setPosition(clock1->getPosition() + clock2->getOrigin());
 		clock2->rotate(0.005f*time);
-		if (clock2->getRotation() >= 358.f){ t1->terminate(); nextplayer = 1; change(); }
+		if (clock2->getRotation() >= 358.f){ t1->terminate(); delete world; master->music.stop(); nextplayer = 1; change(); }
 		win->clear();
 		win->setView(*view);
 		printf("\nStep4");
@@ -560,6 +563,7 @@ public:
 	virtual void init(){}
 	virtual void update(){}
 	virtual void draw(){}
+	virtual ~Playerobject(){}
 
 };
 
@@ -582,6 +586,7 @@ public:
 		win->draw(movie);
 		win->display();
 	}
+	virtual ~Intromovie(){}
 };
 
 class Menuob : public Playerobject{
@@ -638,6 +643,8 @@ public:
 		win->display();
 		//printf("\nFinished drawing");
 	}
+
+	virtual ~Menuob(){}
 };
 
 class Editorob : public Playerobject{
@@ -669,6 +676,7 @@ public:
 		draweditor();
 		printf("\nEditordrawend");
 	}
+	virtual ~Editorob(){}
 };
 
 class Levelob : public Playerobject{
@@ -690,6 +698,7 @@ public:
 		drawlevel();
 		printf("\nReached EndLeveldraw");
 	}
+	virtual ~Levelob(){}
 };
 
 class MPlayer : public Masterplayer{
@@ -702,7 +711,6 @@ public:
 	}
 	virtual void start(int i){
 		if (i == 0){
-			cur = i;
 			player = new Intromovie();
 			player->moviefile = "Seq01.mp4";
 			player->nextplayer = 1;
@@ -711,24 +719,48 @@ public:
 		}
 		if (i == 1){
 			printf("reached creation of menu");
-			cur = i;
 			player = new Menuob();
 		}
 		if (i == 2){
 			printf("reached editorcreation");
-			cur = i;
 			player = new Editorob();
 			player->nextplayer = 1;
 		}
 		if (i == 3){
-			cur = i;
 			player = new Levelob();
-			player->nextplayer = 1;
+			player->nextplayer = 4;
 			player->backpic = "./Level/level1.png";
-			player->levelfile = "./Level/level1.dat";
+			player->levelfile = "./Level/level1.txt";
 			music.openFromFile("./Music/MGO.ogg");
 			player->time = 2;
 			music.play();
+		}
+		if (i == 4){
+			player = new Levelob();
+			player->nextplayer = 5;
+			player->backpic = "./Level/level2.png";
+			player->levelfile = "./Level/level2.txt";
+			//music.openFromFile("./Music/MGO.ogg");
+			player->time = 2;
+			//music.play();
+		}
+		if (i == 5){
+			player = new Levelob();
+			player->nextplayer = 6;
+			player->backpic = "./Level/level3.png";
+			player->levelfile = "./Level/level3.txt";
+			//music.openFromFile("./Music/MGO.ogg");
+			player->time = 1;
+			//music.play();
+		}
+		if (i == 6){
+			player = new Levelob();
+			player->nextplayer = 1;
+			player->backpic = "./Level/level4.png";
+			player->levelfile = "./Level/level4.txt";
+			//music.openFromFile("./Music/MGO.ogg");
+			player->time = 1;
+			//music.play();
 		}
 		player->win = win;
 		player->master = this;
@@ -742,4 +774,5 @@ public:
 	virtual void draw(){
 		player->draw();
 	}
+	virtual ~MPlayer(){}
 };

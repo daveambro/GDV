@@ -137,6 +137,7 @@ int main(){
 		if (master->todelete != NULL){ delete master->todelete; master->todelete = NULL; }
 		
 	}
+	delete master;
 	/*char a;
 	scanf_s("%c", &a);*/
 	return 0;
