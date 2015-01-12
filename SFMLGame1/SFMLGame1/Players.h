@@ -6,22 +6,31 @@ class verts {
 public:float posx;
 	   float posy;
 private:
-	friend class boost::serialization::access;
+	/*friend class boost::serialization::access;
 	template<class Archive>
 	void serialize(Archive & ar, const unsigned int version){
 		ar & posx; ar & posy;
-	}
+	}*/
 };
 
 
 class polys {
 public: std::list<verts> poses;
 private:
-	friend class boost::serialization::access;
+	/*friend class boost::serialization::access;
 	template<class Archive>
 	void serialize(Archive & ar, const unsigned int version){
 		ar & poses;
-	}
+	}*/
+};
+
+class flyen {
+public: std::list<verts> moves;
+		verts starting;
+		sf::CircleShape shape;
+		b2Vec2 start;
+		b2Vec2 end;
+		//b2Body* flysim;
 };
 
 class rects {
@@ -30,28 +39,31 @@ public: float startx;
 		float posx;
 		float posy;
 private:
-	friend class boost::serialization::access;
+	/*friend class boost::serialization::access;
 	template<class Archive>
 	void serialize(Archive & ar, const unsigned int version){
 		ar & startx; ar & starty; ar & posx; ar & posy;
-	}
+	}*/
 
 };
 
 class leveltemp{
 private:
-	friend class boost::serialization::access;
+	/*friend class boost::serialization::access;
 	template<class Archive>
 	void serialize(Archive & ar, const unsigned int version){
 		ar & rectlist; ar & polylist; ar & playerpos; ar & backscale; ar & endrec; ar & plpo;
-	}
+	}*/
 public:
 	std::list<rects> rectlist;
+	std::list<rects> traplist;
 	std::list<polys> polylist;
 	std::list<verts> plpo;
+	std::list<flyen> flylist;
 	verts playerpos;
 	verts backscale;
 	rects endrec;
+	std::list<verts> wallepos;
 	
 };
 
@@ -63,8 +75,10 @@ public:
 	int32 pIt;
 	void run(){
 		sf::Clock clock;
+		/*clock.restart();*/
 		while (true){
-			
+			/*float ttime = clock.getElapsedTime().asSeconds();
+			if (ttime >= 1.f / 60.f){ world->Step(ttime*20, vIt, pIt); clock.restart(); }*/
 			world->Step(clock.restart().asMicroseconds()*tstep, vIt, pIt);
 		}
 	}
@@ -119,9 +133,14 @@ public:
 
 	b2World* world;
 	b2Body* playersim;
+	b2WorldManifold* mani;
 	sf::RectangleShape* player;
 	bool slide;
 	b2Body* endsens;
+	std::list<b2Body*> traps;
+	verts startpos;
+	std::list<b2Body*> flys;
+	std::list<b2Body*> walles;
 
 	Masterplayer* master;
 	int nextplayer;
@@ -132,6 +151,8 @@ public:
 	float time;
 	sf::CircleShape* clock1;
 	sf::CircleShape* clock2;
+	sf::Clock meter;
+	float tslf;
 
 	sf::Thread* t1;
 
@@ -146,6 +167,7 @@ public:
 	sf::Texture backtex;
 	sf::Texture clock1tex;
 	sf::Texture clock2tex;
+	//leveltemp lvl;
 
 
 	void createmovie(){
@@ -155,14 +177,15 @@ public:
 	}
 	void updatemovie(){
 		movie.update();
-		if (movie.getStatus() != sfe::Status::Playing){ change(); }
+		if (master->keylist["spacebar"]){ movie.stop(); }
+		if (movie.getStatus() != sfe::Status::Playing){ change(); return; }
 	}
 	void change(){
 		master->change(nextplayer);
 	}
 
 	void createlevel(){
-		printf("trying file");
+		//printf("trying file");
 		leveltemp lvl;
 		//std::ifstream ifs(levelfile,std::ios::binary);
 		//boost::archive::binary_iarchive ia(ifs);
@@ -205,6 +228,26 @@ public:
 				newrec->starty = ::atof(line.c_str());
 				lvl.rectlist.push_back(*newrec);
 			}
+			if (line == "traps"){
+				rects* newrec = new rects();
+				getline(tfs, line);
+				newrec->posx = ::atof(line.c_str());
+				getline(tfs, line);
+				newrec->posy = ::atof(line.c_str());
+				getline(tfs, line);
+				newrec->startx = ::atof(line.c_str());
+				getline(tfs, line);
+				newrec->starty = ::atof(line.c_str());
+				lvl.traplist.push_back(*newrec);
+			}
+			if (line == "walle"){
+				verts* newv = new verts();
+				getline(tfs, line);
+				newv->posx = ::atof(line.c_str());
+				getline(tfs, line);
+				newv->posy = ::atof(line.c_str());
+				lvl.wallepos.push_back(*newv);
+			}
 			if (line == "polys"){
 				polys* newpoly = new polys();
 				while (getline(tfs, line)){
@@ -220,9 +263,31 @@ public:
 				}
 				lvl.polylist.push_back(*newpoly);
 			}
+			if (line == "flyen"){
+				flyen* newfly = new flyen();
+				getline(tfs, line);
+				newfly->starting.posx = ::atof(line.c_str());
+				getline(tfs, line);
+				newfly->starting.posy = ::atof(line.c_str());
+				newfly->moves.push_back(newfly->starting);
+				printf("%f", newfly->starting.posy);
+				while (getline(tfs, line)){
+					if (line == "moves"){
+						verts* newv = new verts();
+						getline(tfs,line);
+						newv->posx = ::atof(line.c_str());
+						getline(tfs, line);
+						newv->posy = ::atof(line.c_str());
+						newfly->moves.push_back(*newv);
+					}
+					if (line == "endflyen")break;
+				}
+				lvl.flylist.push_back(*newfly);
+				
+			}
 		}
 		tfs.close();
-		printf("opened file");
+		//printf("opened file");
 		b2Vec2 gravity(0.0f, 1.0f);
 		world = new b2World(gravity);
 
@@ -241,14 +306,65 @@ public:
 			delete[] vertx;
 		}
 
+		for each(flyen var in lvl.flylist){
+			flyen* newfly = new flyen();
+			b2BodyDef* flydef = new b2BodyDef; flydef->type = b2_staticBody;
+			flydef->position.Set(var.starting.posx, var.starting.posy);
+			//printf("%f,%f", var.starting.posy,flydef->position.y);
+			newfly->shape.setRadius(10.f);
+			newfly->shape.setFillColor(sf::Color::Green); newfly->shape.setOrigin(10.f, 10.f);
+			//newfly->flysim = world->CreateBody(flydef);
+			b2Body* newfsim = world->CreateBody(flydef);
+			//newfsim->SetTransform(b2Vec2(var.starting.posx, var.starting.posy), 0.f);
+			b2CircleShape* circ = new b2CircleShape;
+			circ->m_radius = 10.f;
+			newfsim->CreateFixture(circ, 1.f);
+			newfsim->GetFixtureList()->SetSensor(true);
+			newfly->moves = var.moves;
+			//printf("%f", var.flysim->GetPosition().y);
+			newfsim->SetUserData(newfly);
+			flys.push_back(newfsim);
+			//delete flydef;
+		}
+
 		for each(rects var in lvl.rectlist){
-			printf("%f %f %f %f", var.posx, var.posy, var.startx, var.starty);
+			//printf("%f %f %f %f", var.posx, var.posy, var.startx, var.starty);
 			b2BodyDef* bodef = new b2BodyDef; bodef->type = b2_staticBody;
 			bodef->position.Set(var.posx + var.startx / 2, var.posy + var.starty / 2);
 			b2Body* bobo = world->CreateBody(bodef);
 			b2PolygonShape* bosh = new b2PolygonShape;
 			bosh->SetAsBox(var.startx / 2, var.starty / 2);
 			bobo->CreateFixture(bosh, 1.0f);
+		}
+
+		for each(rects var in lvl.traplist){
+			//printf("%f %f %f %f", var.posx, var.posy, var.startx, var.starty);
+			b2BodyDef* bodef = new b2BodyDef; bodef->type = b2_staticBody;
+			bodef->position.Set(var.posx + var.startx / 2, var.posy + var.starty / 2);
+			b2Body* bobo = world->CreateBody(bodef);
+			b2PolygonShape* bosh = new b2PolygonShape;
+			bosh->SetAsBox(var.startx / 2, var.starty / 2);
+			bobo->CreateFixture(bosh, 1.0f);
+			bobo->GetFixtureList()->SetSensor(true);
+			traps.push_back(bobo);
+		}
+
+		for each(verts var in lvl.wallepos){
+			b2BodyDef* bodef = new b2BodyDef; bodef->type = b2_dynamicBody;
+			bodef->allowSleep = false;
+			bodef->fixedRotation = true;
+			bodef->position.Set(var.posx, var.posy);
+			b2Body* wallsim = world->CreateBody(bodef);
+			b2PolygonShape* wallsh = new b2PolygonShape;
+			wallsh->SetAsBox(20, 20);
+			wallsim->CreateFixture(wallsh, 1.f);
+			sf::RectangleShape* wallgr = new sf::RectangleShape(sf::Vector2f(40, 40));
+			wallgr->setOrigin(20, 20);
+			wallgr->setFillColor(sf::Color::Blue);
+			wallsim->SetUserData(wallgr);
+			//printf("var:%f,%f sim:%f,%f\n", var.posx, var.posy, bodef->position.x, bodef->position.y);
+			//wallsim->SetTransform(b2Vec2(var.posx, var.posy), 0.f);
+			walles.push_back(wallsim);
 		}
 
 		b2BodyDef* bodef = new b2BodyDef; bodef->type = b2_staticBody;
@@ -266,8 +382,9 @@ public:
 		playd->type = b2_dynamicBody;
 		playd->allowSleep = false;
 		playd->position.Set(lvl.playerpos.posx, lvl.playerpos.posy);
-		
-		printf("playerpos:%f %f",playd->position.x,playd->position.y);
+		startpos.posx = lvl.playerpos.posx;
+		startpos.posy = lvl.playerpos.posy;
+		//printf("playerpos:%f %f",playd->position.x,playd->position.y);
 		//int i; scanf_s("%d", &i);
 		playd->angularDamping = 0.02f;
 		playersim = world->CreateBody(playd);
@@ -291,7 +408,7 @@ public:
 		background = new sf::Sprite(backtex);
 		background->setPosition(0.0f, 0.0f);
 		background->setScale(lvl.backscale.posx, lvl.backscale.posy);
-		printf("%f %f", lvl.backscale.posx, lvl.backscale.posy);
+		//printf("%f %f", lvl.backscale.posx, lvl.backscale.posy);
 		//char a;
 		//scanf_s("%c", &a);
 
@@ -304,6 +421,7 @@ public:
 		clock2->setRadius(50); clock2->setOrigin(sf::Vector2f(50, 50));
 		view = new sf::View();
 		*view = win->getView();
+		mani = new b2WorldManifold();
 
 		threadsim* sim = new threadsim();
 		sim->world = world;
@@ -316,10 +434,10 @@ public:
 	}
 
 	void savelevel(){
-		std::ofstream ofs("newlevel.dat",std::ios::binary);
+		/*std::ofstream ofs("newlevel.dat",std::ios::binary);
 		boost::archive::binary_oarchive oa(ofs);
 		oa << lvls;
-		ofs.close();
+		ofs.close();*/
 		std::ofstream tfs("textfile.txt");
 		tfs << "playerpos\n";
 		tfs << lvls->playerpos.posx << "\n";
@@ -339,6 +457,13 @@ public:
 			tfs << var.startx << "\n";
 			tfs << var.starty << "\n";
 		}
+		for each(rects var in lvls->traplist){
+			tfs << "traps\n";
+			tfs << var.posx << "\n";
+			tfs << var.posy << "\n";
+			tfs << var.startx << "\n";
+			tfs << var.starty << "\n";
+		}
 		for each(polys var in lvls->polylist){
 			tfs << "polys\n";
 			for each(verts vvar in var.poses){
@@ -348,11 +473,27 @@ public:
 			}
 			tfs << "endpolys\n";
 		}
+		for each(flyen var in lvls->flylist){
+			tfs << "flyen\n";
+			tfs << var.starting.posx << "\n";
+			tfs << var.starting.posy << "\n";
+			for each(verts vvar in var.moves){
+				tfs << "moves\n";
+				tfs << vvar.posx << "\n";
+				tfs << vvar.posy << "\n";
+			}
+			tfs << "endflyen\n";
+		}
+		for each(verts var in lvls->wallepos){
+			tfs << "walle\n";
+			tfs << var.posx << "\n";
+			tfs << var.posy << "\n";
+		}
 		tfs.close();
 	}
 
 	void updateeditor(){
-		printf("\nReal update");
+		//printf("\nReal update");
 		if (master->keylist["recstart"]){//b
 			master->insertkey("recstart", false);
 			recstart = win->mapPixelToCoords(sf::Mouse::getPosition(*win));
@@ -373,7 +514,7 @@ public:
 			bltest->posx = newblock.getPosition().x;
 			bltest->posy = newblock.getPosition().y;
 			bltest->startx = newblock.getSize().x;
-			bltest->starty = newblock.getSize().y; printf("%f %f %f %f", bltest->posx, bltest->posy, bltest->startx, bltest->starty);
+			bltest->starty = newblock.getSize().y; //printf("%f %f %f %f", bltest->posx, bltest->posy, bltest->startx, bltest->starty);
 			//char a; scanf_s("%c", &a);
 			lvls->rectlist.push_back(*bltest);
 		}
@@ -387,6 +528,7 @@ public:
 			sf::RectangleShape newblock;
 			newblock.setSize(end - recstart);
 			newblock.setPosition(recstart);
+			newblock.setFillColor(sf::Color(0, 0, 200, 255));
 			//newblock.setOrigin((end-start)/2.f);
 			tmprec.push_back(newblock);
 			rects* bltest = new rects();
@@ -395,6 +537,25 @@ public:
 			bltest->startx = newblock.getSize().x;
 			bltest->starty = newblock.getSize().y;
 			lvls->endrec = *bltest;
+		}
+
+		if (master->keylist["trapend"]){//,
+			master->insertkey("trapend", false);
+			sf::Vector2f end = win->mapPixelToCoords(sf::Mouse::getPosition(*win));
+			sf::Vector2f tmp;
+			if (recstart.x > end.x){ tmp.x = end.x; end.x = recstart.x; recstart.x = tmp.x; }
+			if (recstart.y > end.y){ tmp.y = end.y; end.y = recstart.y; recstart.y = tmp.y; }
+			sf::RectangleShape newblock;
+			newblock.setSize(end - recstart);
+			newblock.setPosition(recstart);
+			newblock.setFillColor(sf::Color(200, 0, 0, 255));
+			tmprec.push_back(newblock);
+			rects* bltest = new rects();
+			bltest->posx = newblock.getPosition().x;
+			bltest->posy = newblock.getPosition().y;
+			bltest->startx = newblock.getSize().x;
+			bltest->starty = newblock.getSize().y;
+			lvls->traplist.push_back(*bltest);
 		}
 
 		if (master->keylist["polpoint"]){//o
@@ -421,6 +582,22 @@ public:
 			tmpvec.clear();
 		}
 
+		if (master->keylist["flyend"]){//u
+			master->insertkey("flyend", false);
+			flyen* newfly = new flyen();
+			sf::Vector2f justthis = tmpvec.front(); //tmpvec.pop_front();
+			newfly->starting.posx = justthis.x; newfly->starting.posy = justthis.y;
+			for each(sf::Vector2f var in tmpvec){
+				//newfly->starting.posx = var.x; newfly->starting.posy = var.y;
+				verts* newvert = new verts();
+				newvert->posx = var.x;
+				newvert->posy = var.y;
+				newfly->moves.push_back(*newvert);
+			}
+			lvls->flylist.push_back(*newfly);
+			tmpvec.clear();
+		}
+
 		if (master->keylist["setstart"]){//i
 			master->insertkey("setstart", false);
 			tmpplayer.setPosition(win->mapPixelToCoords(sf::Mouse::getPosition(*win)));
@@ -430,15 +607,25 @@ public:
 			plps->posx = tmpplayer.getPosition().x;
 			plps->posy = tmpplayer.getPosition().y;
 			lvls->plpo.push_front(*plps);
-			printf("playerpos:%f %f", lvls->playerpos.posx, lvls->playerpos.posy);
+			//printf("playerpos:%f %f", lvls->playerpos.posx, lvls->playerpos.posy);
 			//int i; scanf_s("%d", &i);
+		}
+
+		if (master->keylist["walle"]){//j
+			master->insertkey("walle", false);
+			sf::Vector2f newv = win->mapPixelToCoords(sf::Mouse::getPosition(*win));
+			verts* newvt = new verts();
+			newvt->posx = newv.x;
+			newvt->posy = newv.y;
+			lvls->wallepos.push_back(*newvt);
+
 		}
 
 		if (master->keylist["scaledown"]){//k
 			background->scale(0.999f, 0.999f);
 			lvls->backscale.posx = background->getScale().x;
 			lvls->backscale.posy = background->getScale().y;
-			printf("%f %f", lvls->backscale.posx, lvls->backscale.posy);
+			//printf("%f %f", lvls->backscale.posx, lvls->backscale.posy);
 			//char a;
 			//scanf_s("%c", &a);
 		}
@@ -447,7 +634,7 @@ public:
 			background->scale(1.001f, 1.001f);
 			lvls->backscale.posx = background->getScale().x;
 			lvls->backscale.posy = background->getScale().y;
-			printf("%f %f", lvls->backscale.posx, lvls->backscale.posy);
+			//printf("%f %f", lvls->backscale.posx, lvls->backscale.posy);
 		}
 
 		if (master->keylist["enter"]){
@@ -455,7 +642,7 @@ public:
 			savelevel();
 			*view = win->getDefaultView();
 			win->setView(*view);
-			change();
+			change(); return;
 		}
 
 		if (master->keylist["up"]){
@@ -475,49 +662,77 @@ public:
 		}
 		win->clear();
 		win->setView(*view);
-		printf("\n End Real Update");
+		//printf("\n End Real Update");
 
 
 	}
 
 	void updatelevel(){
-		printf("\nReal Levelupdate");
+		tslf=meter.restart().asSeconds();
+		//printf("\nReal Levelupdate");
 		if (endsens != NULL){
-			printf("Im closing");
+			//printf("Im closing");
 			//win->close();
 			if (endsens->GetContactList() != NULL){
+				//printf("Touch endblock\n");
 				if (endsens->GetContactList()->contact->IsTouching()){
-					t1->terminate(); delete world;
-					change();
+					if (endsens->GetContactList()->other == playersim){
+						t1->terminate(); delete world;
+						change(); return;
+					}
 				}
 			}
 		}
-		printf("Step1");
+
+		for each (b2Body* var in traps)
+		{
+			if (var->GetContactList() != NULL){
+				if (endsens->GetContactList()->other == playersim){
+					//t1->terminate(); delete world; master->music.stop(); nextplayer = 1; change();
+					playersim->SetLinearVelocity(b2Vec2(0.f, 0.f));
+					playersim->SetTransform(b2Vec2(startpos.posx, startpos.posy), 0.f);
+				}
+			}
+		}
+
+		for each(b2Body* var in flys){
+			if (var->GetContactList() != NULL){
+				if (endsens->GetContactList()->other == playersim){
+					playersim->SetLinearVelocity(b2Vec2(0.f, 0.f));
+					playersim->SetTransform(b2Vec2(startpos.posx, startpos.posy), 0.f);
+				}
+			}
+		}
+		//printf("Step1");
 		if (master->keylist["enter"]){
 			master->insertkey("enter", false);
 			
-			printf("Shit happens");
+			//printf("Shit happens");
 			t1->terminate();
 			delete world;
 			nextplayer = 1;
 			master->music.stop();
-			change();
+			change(); return;
 		}
 
 		if (master->keylist["up"]){
-			if (playersim->GetLinearVelocity().y <= 5 && playersim->GetLinearVelocity().y >= -5){
-				playersim->ApplyLinearImpulse(b2Vec2(playersim->GetLinearVelocity().x, -1000), b2Vec2(playersim->GetPosition().x, playersim->GetPosition().y), true);
+			if (playersim->GetLinearVelocity().y <= 5 && playersim->GetLinearVelocity().y >= -5 && !master->keylist["blockjump"]){
+				master->insertkey("blockjump", true);
+				playersim->ApplyLinearImpulse(b2Vec2(playersim->GetLinearVelocity().x, -3000), b2Vec2(playersim->GetPosition().x, playersim->GetPosition().y), true);
 			}
 		}
 
 		if (master->keylist["left"]){
 			slide = true;
-			playersim->SetAngularVelocity(-1); playersim->SetLinearVelocity(b2Vec2(-4, 0));
+			playersim->SetAngularVelocity(-0.5f); playersim->SetLinearVelocity(b2Vec2(-4, world->GetGravity().y*playersim->GetLinearVelocity().y));/*playersim->ApplyForceToCenter(b2Vec2(-500, 0), true);*/
+			/*playersim->ApplyForce(b2Vec2(-250, 0),playersim->GetLocalCenter()-b2Vec2(0,10), true);*//*playersim->ApplyAngularImpulse(-1000, true);*/
 		}
 
 		if (master->keylist["right"]){
 			slide = true;
-			playersim->SetAngularVelocity(1); playersim->SetLinearVelocity(b2Vec2(4, 0));
+			playersim->SetAngularVelocity(0.5f); playersim->SetLinearVelocity(b2Vec2(4, world->GetGravity().y*playersim->GetLinearVelocity().y));/*playersim->ApplyForceToCenter(b2Vec2(500, 0), true);*/
+			/*playersim->ApplyForce(b2Vec2(250, 0), playersim->GetLocalCenter() - b2Vec2(0, 10), true);*//*playersim->ApplyAngularImpulse(1000, true);*/
+
 		}
 
 		if (master->keylist["down"]){
@@ -527,21 +742,58 @@ public:
 				slide = false;
 			}
 		}
-		printf("\nStep2");
+		//printf("\nStep2");
+		if (master->keylist["blockjump"]){
+			if (playersim->GetContactList() != NULL){
+				//master->insertkey("blockjump", false);
+				playersim->GetContactList()->contact->GetWorldManifold(mani);
+				if (mani->normal.y <= 0){
+					master->insertkey("blockjump", false);
+				}
+				printf("\n normal:%f", mani->normal.x);
+			}
+		}
 		player->setPosition(playersim->GetPosition().x, playersim->GetPosition().y);
 		player->setRotation(playersim->GetTransform().q.GetAngle()*180.f / 3.14156f);
-		printf("\nStep3");
+		for each (b2Body *var in flys){
+			//printf("%f", var->flysim->GetPosition().y);
+			flyen* bla=static_cast<flyen*>(var->GetUserData());
+			
+			verts newmove=bla->moves.front();
+			bla->start = var->GetPosition();
+			bla->end.x = newmove.posx; bla->end.y = newmove.posy;
+			b2Vec2 vec = bla->end - bla->start; b2Vec2 test = vec; vec.Normalize(); vec.operator*=(50.f*tslf);
+			
+			var->SetTransform(bla->start+vec,0.f);
+			bla->shape.setPosition(var->GetPosition().x, var->GetPosition().y);
+			//printf("\n%f",test.Length());
+			if (test.LengthSquared()<=0.1f){
+				//printf("start:%f,%f", bla->start.x, bla->start.y);
+				//printf(" end:%f,%f", bla->end.x, bla->end.y);
+				//printf(" vec:%f,%f\n%f", vec.x, vec.y,test.Length());
+				bla->moves.push_back(bla->moves.front());
+				bla->moves.pop_front();
+			}
+		}
+		for each (b2Body *var in walles){
+			sf::RectangleShape* blu = static_cast<sf::RectangleShape*>(var->GetUserData());
+			blu->setPosition(var->GetPosition().x, var->GetPosition().y);
+			blu->setRotation(var->GetTransform().q.GetAngle()*180.f / 3.14156f);
+		}
+		//b2Vec2 bla; bla.Set(5.f, 3.f); printf("%f\n%f\n%f\n", bla.Length(),bla.LengthSquared(),bla.Normalize());
+		//printf("\nStep3");
 		view->setCenter(player->getPosition());
 		clock1->setPosition(win->mapPixelToCoords(sf::Vector2i(0, 0)));
 		clock2->setPosition(clock1->getPosition() + clock2->getOrigin());
-		clock2->rotate(0.005f*time);
-		if (clock2->getRotation() >= 358.f){ t1->terminate(); delete world; master->music.stop(); nextplayer = 1; change(); }
+		/*clock2->rotate(0.005f*time);*/
+		clock2->rotate(6.f*tslf*time);
+		if (clock2->getRotation() >= 358.f){ t1->terminate(); delete world; master->music.stop(); nextplayer = 1; change(); return; }
 		win->clear();
 		win->setView(*view);
-		printf("\nStep4");
+		//printf("\nStep4");
 	}
 	void draweditor(){
-		printf("\n Real drawing");
+		//printf("\n Real drawing");
 		win->draw(*background);
 		for each(sf::RectangleShape var in tmprec){
 			win->draw(var);
@@ -551,11 +803,19 @@ public:
 		}
 		win->draw(tmpplayer);
 		win->display();
-		printf("\n End Real drawing");
+		//printf("\n End Real drawing");
 	}
 	void drawlevel(){
 		win->draw(*background);
 		win->draw(*player);
+		for each(b2Body *var in flys){
+			flyen *blo = (flyen*)var->GetUserData();
+			win->draw(blo->shape);
+		}
+		for each(b2Body *var in walles){
+			sf::RectangleShape *blo = (sf::RectangleShape*)var->GetUserData();
+			win->draw(*blo);
+		}
 		win->draw(*clock1);
 		win->draw(*clock2);
 		win->display();
@@ -581,7 +841,7 @@ public:
 	}
 
 	virtual void draw(){
-		printf("Reached drawing");
+		//printf("Reached drawing");
 		win->clear();
 		win->draw(movie);
 		win->display();
@@ -596,7 +856,7 @@ public:
 	int curitem;
 
 	virtual void init(){
-		printf("\nreached menuinit");
+		//printf("\nreached menuinit");
 		menuitems = new sf::Texture[5];
 		menuitems[0].loadFromFile("./Menu/menu1.png");
 		menuitems[1].loadFromFile("./Menu/menu2.png");
@@ -606,11 +866,11 @@ public:
 		curitem = 0;
 		menu.setSize(sf::Vector2f(600, 400));
 		menu.setPosition(0, 0);
-		printf("\nfinished menuinit");
+		//printf("\nfinished menuinit");
 	}
 
 	virtual void update(){
-		printf("\nReached update");
+		//printf("\nReached update");
 		if (master->keylist["down"]){ curitem++; master->insertkey("down", false); }
 		if (master->keylist["up"]){ curitem--; master->insertkey("up", false); }
 		if (master->keylist["enter"]){
@@ -623,6 +883,10 @@ public:
 				nextplayer = 2;
 				change();
 			}
+			if (curitem == 2){
+				nextplayer = -1;
+				change();
+			}
 			if (curitem == 4){
 				win->close();
 			}
@@ -633,7 +897,7 @@ public:
 		menu.setTexture(&menuitems[curitem]);
 		sf::View view = win->getDefaultView();
 		win->setView(view);
-		printf("\nFinished update");
+		//printf("\nFinished update");
 	}
 
 	virtual void draw(){
@@ -652,7 +916,7 @@ public:
 	sf::Texture texts;
 	sf::Texture tmptex;
 	virtual void init(){
-		printf("\n Editorinitstart");
+		//printf("\n Editorinitstart");
 		lvls = new leveltemp();
 		texts.loadFromFile("foreditor.png");
 		background = new sf::Sprite(texts);
@@ -664,17 +928,17 @@ public:
 		tmpplayer.setTexture(&tmptex);
 		view = new sf::View();
 		*view = win->getView();
-		printf("\nEditorinitend");
+		//printf("\nEditorinitend");
 	}
 	virtual void update(){
-		printf("\nEditorupdatestart");
+		//printf("\nEditorupdatestart");
 		updateeditor();
-		printf("\nEditorupdateend");
+		//printf("\nEditorupdateend");
 	}
 	virtual void draw(){
-		printf("\nEditordrawstart");
+		//printf("\nEditordrawstart");
 		draweditor();
-		printf("\nEditordrawend");
+		//printf("\nEditordrawend");
 	}
 	virtual ~Editorob(){}
 };
@@ -682,21 +946,21 @@ public:
 class Levelob : public Playerobject{
 public:
 	virtual void init(){
-		printf("\nReached Levelinit");
+		//printf("\nReached Levelinit");
 		createlevel();
-		printf("\nReached EndLevelinit");
+		//printf("\nReached EndLevelinit");
 	}
 
 	virtual void update(){
-		printf("\nReached Levelupdate");
+		//printf("\nReached Levelupdate");
 		updatelevel();
-		printf("\nReached EndLevelupdate");
+		//printf("\nReached EndLevelupdate");
 	}
 
 	virtual void draw(){
-		printf("\nReached Leveldraw");
+		//printf("\nReached Leveldraw");
 		drawlevel();
-		printf("\nReached EndLeveldraw");
+		//printf("\nReached EndLeveldraw");
 	}
 	virtual ~Levelob(){}
 };
@@ -718,13 +982,23 @@ public:
 			music.play();
 		}
 		if (i == 1){
-			printf("reached creation of menu");
+			//printf("reached creation of menu");
 			player = new Menuob();
 		}
 		if (i == 2){
-			printf("reached editorcreation");
+			//printf("reached editorcreation");
 			player = new Editorob();
 			player->nextplayer = 1;
+		}
+
+		if (i == -1){
+			player = new Levelob();
+			player->nextplayer = 3;
+			player->backpic = "./foreditor.png";
+			player->levelfile = "./textfile.txt";
+			//music.openFromFile("./Music/M27.ogg");
+			//music.play();
+			player->time = 0.5;
 		}
 		if (i == 3){
 			player = new Levelob();
@@ -755,9 +1029,18 @@ public:
 		}
 		if (i == 6){
 			player = new Levelob();
-			player->nextplayer = 1;
+			player->nextplayer = 7;
 			player->backpic = "./Level/level4.png";
 			player->levelfile = "./Level/level4.txt";
+			//music.openFromFile("./Music/MGO.ogg");
+			player->time = 1;
+			//music.play();
+		}
+		if (i == 7){
+			player = new Levelob();
+			player->nextplayer = 1;
+			player->backpic = "./Level/level5.png";
+			player->levelfile = "./Level/level5.txt";
 			//music.openFromFile("./Music/MGO.ogg");
 			player->time = 1;
 			//music.play();

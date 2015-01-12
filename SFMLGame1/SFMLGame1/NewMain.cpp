@@ -2,7 +2,8 @@
 #include <Players.h>
 
 int main(){
-	sf::RenderWindow window(sf::VideoMode(600, 400), "SFML works!", sf::Style::Default);
+	sf::ContextSettings context; context.antialiasingLevel = 2;
+	sf::RenderWindow window(sf::VideoMode(600, 400), "Paperflower and Boxsquasher", sf::Style::Default,context);
 	MPlayer* master=new MPlayer();
 	master->todelete = NULL;
 	master->win = &window;
@@ -19,6 +20,9 @@ int main(){
 			if (event.type == sf::Event::KeyPressed){
 				if (event.key.code == sf::Keyboard::Return){
 					master->insertkey("enter", true);
+				}
+				if (event.key.code == sf::Keyboard::Space){
+					master->insertkey("spacebar", true);
 				}
 				if (event.key.code == sf::Keyboard::Down){
 					master->insertkey("down", true);
@@ -48,12 +52,21 @@ int main(){
 					master->insertkey("sensend", true);
 				}
 
+				if (event.key.code == sf::Keyboard::Comma){
+					printf("Comma");
+					master->insertkey("trapend", true);
+				}
+
 				if (event.key.code == sf::Keyboard::O){
 					master->insertkey("polpoint", true);
 				}
 
 				if (event.key.code == sf::Keyboard::P){
 					master->insertkey("polend", true);
+				}
+
+				if (event.key.code == sf::Keyboard::U){
+					master->insertkey("flyend", true);
 				}
 
 				if (event.key.code == sf::Keyboard::I){
@@ -66,6 +79,10 @@ int main(){
 
 				if (event.key.code == sf::Keyboard::L){
 					master->insertkey("scaleup", true);
+				}
+
+				if (event.key.code == sf::Keyboard::J){
+					master->insertkey("walle", true);
 				}
 
 				
